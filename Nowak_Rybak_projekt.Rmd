@@ -148,6 +148,8 @@ ggplot(model, aes(x = model$residuals)) +
 shapiro.test(model$residuals)
 ```
 
+Zatem reszty nie są normalne.
+
 # Testowanie autokorelacji
 
 # Testowanie współliniowości
