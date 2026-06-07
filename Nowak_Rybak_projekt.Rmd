@@ -1,0 +1,181 @@
+---
+title: "Budowa modelu ekonometrycznego na podstawie danych makroekonomicznych USA w latach 1980-2022"
+author: "Natalia Nowak, Jacek Rybak"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    theme: flatly
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+dane <- read.csv("US_macroeconomics.csv")
+library(tidyverse)
+library(corrplot)
+library(cowplot)
+test <- dane |>
+	filter(date > ymd("2014-02-01"))
+train <- dane |>
+	filter(date <= ymd("2014-02-01"))
+```
+
+# Opis danych i źródło
+
+## Źródło i opis
+
+Zbiór danych pochodzi ze strony [kaggle.com](https://www.kaggle.com/datasets/sarthmirashi07/us-macroeconomic-data) i zawiera dane makroekonomiczne z USA zbierane od listopada 1980 roku do maja 2022.
+
+## Podstawowe charakterystyki zmiennych
+
+```{r}
+summary(dane)
+```
+
+* `date` data danej obserwacji
+* $X_1:$ `CPI` wskaźnik cen towarów i usług konsumpcyjnych dla ludności miejskiej
+* $X_2:$`Mortgage_rate` średnie oprocentowanie 30-letnich kredytów hipotecznych o stałej stopie procentowej
+* $X_3:$`Unemp_rate` stopa bezrobocia
+* $X_4:$`NASDAQ` wartość indeksu NASDAQ
+* $X_5:$`disposable_income` dochód rozporządzalny
+* $X_6:$`Personal_consumption_expenditure` wydatki na konsumpcję
+* $Y:$`personal_savings` odsetek wynagrodzenia przeznaczany na oszczędności
+
+# Wykresy zależności
+
+```{r echo=FALSE, fig.width=9, fig.height=12}
+p1 <- ggplot(train, aes(x = personal_savings, y = CPI)) +
+	labs(x = "Stopa oszczędności") +
+	geom_point(alpha = 0.3) +
+	theme_minimal()
+
+
+p2 <- ggplot(train, aes(x = personal_savings, y = NASDAQ)) +
+	geom_point(alpha = 0.3) +
+	labs(x = "Stopa oszczędności") +
+	theme_minimal()
+
+p3 <- ggplot(train, aes(x = personal_savings, y = disposable_income)) +
+	geom_point(alpha = 0.3) +
+	labs(x = "Stopa oszczędności", y = "Dochód rozporządzalny") +
+	theme_minimal()
+
+p4 <- ggplot(train, aes(x = personal_savings, y = Unemp_rate)) +
+	geom_point(alpha = 0.3) +
+	labs(x = "Stopa oszczędności", y = "Stopa bezrobocia") +
+	theme_minimal()
+
+p5 <- ggplot(train, aes(x = personal_savings, y = Mortgage_rate)) +
+	geom_point(alpha = 0.3) +
+	labs(x = "Stopa oszczędności", y = "Stopa procentowa kredytów") +
+	theme_minimal()
+
+p6 <- ggplot(train, aes(x = personal_savings, y = Personal_consumption_expenditure)) +
+	geom_point(alpha = 0.3) +
+	labs(x = "Stopa oszczędności", y = "Wydatki na konsumpcję") +
+	theme_minimal()
+
+plot_grid(p1, p2, p3, p4, p5, p6, nrow = 3)
+```
+
+# Badanie korelacji między zmiennymi
+
+```{r fig.width=9}
+train |> 
+	select(-date) |> 
+	cor() |> 
+	corrplot()
+
+corr_matrix <- train |> 
+	select(-c(date, personal_savings)) |> 
+	cor()
+pary_kor <- corr_matrix |> 
+	as.data.frame() |> 
+	mutate(var1 = rownames(corr_matrix)) |> 
+	pivot_longer(cols = -var1, names_to = "var2", values_to = "corr") |> 
+	filter(var1 < var2, abs(corr) > 0.7) |> 
+	arrange(desc(abs(corr)))
+print(pary_kor)
+```
+
+W niektórych parach zmiennych objaśniających występują wysokie korelacje.
+
+```{r}
+cor(train |> 
+	select(-c(date, personal_savings)),
+	train$personal_savings)
+```
+
+Wszystkie zmienne są umiarkowanie lub silnie skorelowane ze zmienną objaśnianą.
+
+# Badanie stacjonarności zmiennych
+
+```{r fig.width=9}
+pacf(train$personal_savings)
+```
+
+
+# Budowa modelu
+
+```{r}
+model <- lm(personal_savings ~ CPI + Mortgage_rate + Unemp_rate + NASDAQ +
+			disposable_income + Personal_consumption_expenditure, train)
+summary(model)
+```
+
+# Eliminacja zmiennych metodą krokową wsteczną
+
+
+
+# Badanie normalności rozkładu reszt
+
+```{r, echo = FALSE, fig.width=9, warning = FALSE}
+ggplot(model, aes(x = model$residuals)) + 
+	geom_histogram(aes(y = after_stat(density)), fill = "#2C3E50", bins = 30) +
+	stat_function(
+	    fun = dnorm, 
+	    args = list(mean = mean(model$residuals), sd = sd(model$residuals)), 
+	    color = "red", 
+	    linewidth = 1.2
+	) +
+	labs(title = "Rozkład reszt", x = "Wartość reszty", y = "Gęstość wystąpień") +
+	theme_minimal()
+```
+
+```{r}
+shapiro.test(model$residuals)
+```
+
+# Testowanie autokorelacji
+
+# Testowanie współliniowości
+
+# Testowanie stabilności parametrów modelu
+
+# Testowanie stabilności postaci analitycznej modelu
+
+# Badanie efektu katalizy
+
+```{r}
+R0 <- cor(train |> 
+	select(-c(date, personal_savings)),
+	train$personal_savings)
+
+R <- cor(train |> 
+	select(-c(date, personal_savings)),
+	train |> 
+	select(-c(date, personal_savings)))
+
+print(R < 0)
+```
+
+
+# Badanie koincydencji
+
+# Ostateczna postać modelu
+
+# Wyznaczenie prognozy
+
+## Błąd prognozy
