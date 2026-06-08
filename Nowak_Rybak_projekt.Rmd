@@ -16,6 +16,8 @@ dane <- read.csv("US_macroeconomics.csv")
 library(tidyverse)
 library(corrplot)
 library(cowplot)
+library(tseries)
+library(forecast)
 test <- dane |>
 	filter(date > ymd("2014-02-01"))
 train <- dane |>
@@ -100,7 +102,24 @@ pary_kor <- corr_matrix |>
 print(pary_kor)
 ```
 
-W niektórych parach zmiennych objaśniających występują wysokie korelacje.
+W niektórych parach zmiennych objaśniających występują wysokie korelacje. Przed zbudowaniem modelu należy pozbyć się zmiennych objaśniających o wysokim stopniu korelacji ze sobą.
+
+```{r}
+train <- train |>
+	select(-c(CPI, disposable_income))
+corr_matrix <- train |> 
+	select(-c(date, personal_savings)) |> 
+	cor()
+pary_kor <- corr_matrix |> 
+	as.data.frame() |> 
+	mutate(var1 = rownames(corr_matrix)) |> 
+	pivot_longer(cols = -var1, names_to = "var2", values_to = "corr") |> 
+	filter(var1 < var2, abs(corr) > 0.7) |> 
+	arrange(desc(abs(corr)))
+print(pary_kor)
+```
+
+Po usunięciu zmiennych CPI oraz disposable_income żadna wartość korelacji zmiennych nie przekracza wartości 0,9.
 
 ```{r}
 cor(train |> 
@@ -112,16 +131,28 @@ Wszystkie zmienne są umiarkowanie lub silnie skorelowane ze zmienną objaśnian
 
 # Badanie stacjonarności zmiennych
 
-```{r fig.width=9}
-pacf(train$personal_savings)
+```{r fig.width=9, warning = F}
+train |>
+	select(-date) |>
+	summarise(across(everything(), ~ kpss.test(.x, null = "Trend")$p.value))
+
+train <- train |>
+	mutate(across(where(is.numeric), ~ c(NA, diff(.x))))
+
+train |>
+	select(-date) |>
+	summarise(across(everything(), ~ kpss.test(.x, null = "Trend")$p.value))
 ```
+
+W przypadku każdej zmiennej nie stwierdzono stacjonarności nawet po uwzględnieniu trendu.
+
 
 
 # Budowa modelu
 
 ```{r}
-model <- lm(personal_savings ~ CPI + Mortgage_rate + Unemp_rate + NASDAQ +
-			disposable_income + Personal_consumption_expenditure, train)
+model <- lm(personal_savings ~ Mortgage_rate + Unemp_rate + NASDAQ +
+			Personal_consumption_expenditure, train)
 summary(model)
 ```
 
