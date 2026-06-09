@@ -23,6 +23,7 @@ test <- dane |>
 	filter(date > ymd("2014-02-01"))
 train <- dane |>
 	filter(date <= ymd("2014-02-01"))
+alpha = 0.1
 ```
 
 # Opis danych i źródło
@@ -161,9 +162,23 @@ model <- lm(personal_savings ~ Mortgage_rate + Unemp_rate + NASDAQ +
 summary(model)
 ```
 
+Pierwotny model wyjaśnia `r paste0(round(summary(model)$r.squared * 100, 2), "%")` zmienności zmiennej objaśnianej, a jego niskie p-value na poziomie `r glance(model)$p.value` oznacza, że zmienne objaśniające mają istotny statystycznie wpływ na zmienną objaśnianą.
+
 # Eliminacja zmiennych metodą krokową wsteczną
 
+Nie wszystkie zmienne, które są zawarte w modelu, są istotne. Dlatego po kolei będzie eliminowana zmienna o najniższej istotności aż do momentu, w którym wszystkie zmienne będą istotne.
 
+```{r}
+model <- lm(personal_savings ~ Mortgage_rate + NASDAQ +
+			Personal_consumption_expenditure, train)
+summary(model)
+```
+
+```{r}
+model <- lm(personal_savings ~ Mortgage_rate +
+			Personal_consumption_expenditure, train)
+summary(model)
+```
 
 # Badanie normalności rozkładu reszt
 
