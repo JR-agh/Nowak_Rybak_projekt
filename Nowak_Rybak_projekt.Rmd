@@ -119,7 +119,7 @@ pary_kor <- corr_matrix |>
 print(pary_kor)
 ```
 
-Po usunięciu zmiennych CPI oraz disposable_income żadna wartość korelacji zmiennych nie przekracza wartości 0,9.
+Po usunięciu zmiennych CPI oraz disposable_income żadna wartość bezwględna korelacji zmiennych nie przekracza wartości 0,9.
 
 ```{r}
 cor(train |> 
