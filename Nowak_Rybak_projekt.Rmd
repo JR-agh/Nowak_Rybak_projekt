@@ -134,18 +134,22 @@ Wszystkie zmienne są umiarkowanie lub silnie skorelowane ze zmienną objaśnian
 
 ```{r fig.width=9, warning = F}
 train |>
-	select(-date) |>
-	summarise(across(everything(), ~ kpss.test(.x, null = "Trend")$p.value))
+	summarise(across(where(is.numeric), ~ kpss.test(.x, null = "Trend")$p.value))
+```
 
+Zmienne nie są stacjonarne nawet po uwzględnieniu trendu. W celu usunięcia niestacjonarności przekształcamy szereg czasowy wartości w szereg czasowy różnic wartości.
+
+```{r fig.width=9, warning = F}
 train <- train |>
-	mutate(across(where(is.numeric), ~ c(NA, diff(.x))))
+	mutate(across(where(is.numeric), ~ c(NA, diff(.x)))) |>
+	slice(-1)
 
 train |>
 	select(-date) |>
 	summarise(across(everything(), ~ kpss.test(.x, null = "Trend")$p.value))
 ```
 
-W przypadku każdej zmiennej nie stwierdzono stacjonarności nawet po uwzględnieniu trendu.
+Po przekształceniu zmienne stały się stacjonarne.
 
 
 
@@ -224,7 +228,6 @@ R <- cor(train |>
 	select(-c(date, personal_savings)),
 	train |> 
 	select(-c(date, personal_savings)))
-
 print(R < 0)
 ```
 
