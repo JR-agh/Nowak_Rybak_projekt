@@ -19,15 +19,13 @@ library(cowplot)
 library(tseries)
 library(forecast)
 library(urca)
-library(broom) #augment - lm -> data.frame
-<<<<<<< HEAD
-dane <- dane |>
-	mutate(date = ymd(date))
-=======
+library(broom)
 library(lmtest)
 library(strucchange)
 library(car)
->>>>>>> 8766b07c7b21042268b42c6001f0355061342af5
+
+dane <- dane |>
+	mutate(date = ymd(date))
 test <- dane |>
 	filter(date > ymd("2014-02-01"))
 train <- dane |>
@@ -150,17 +148,13 @@ train |>
 Zmienne nie są stacjonarne nawet po uwzględnieniu trendu. W celu usunięcia niestacjonarności przekształcamy szereg czasowy wartości w szereg czasowy różnic wartości.
 
 ```{r fig.width=9, warning = F}
-train_diff <- train |>
+train <- train |>
 	mutate(across(where(is.numeric), ~ c(NA, diff(.x)))) |>
 	slice(-1)
 
-train_diff |>
+train |>
 	select(-date) |>
 	summarise(across(everything(), ~ kpss.test(.x, null = "Trend")$p.value))
-
-train_diff <- train |>
-	mutate(across(where(is.numeric), ~ c(NA, diff(.x)))) |>
-	slice(-12)
 ```
 
 Po przekształceniu zmienne stały się stacjonarne z wyjątkiem zmiennej opisującej wydatki na konsumpcję.
@@ -169,11 +163,11 @@ Po przekształceniu zmienne stały się stacjonarne z wyjątkiem zmiennej opisuj
 ggplot(train, aes(x = date, y = Personal_consumption_expenditure)) +
 	geom_line() +
 	theme_minimal()
-
-summary(ur.za(train_diff$Personal_consumption_expenditure))
+#https://metricgate.com/docs/zivot-andrews-test/
+summary(ur.za(train$Personal_consumption_expenditure))
 ```
 
-Po przyjrzeniu się wykresowi można zauważyć silny spadek wydatków w okolicy kryzysu z 2008 roku. Ze względu na niego szereg nawet po różnicowaniu nie jest uznawany za stacjonarny przez test KPSS. Na szczęście istnieje test stacjonarności, który potrafi uwzględnić pęknięcie strukturalne. Odrzucamy $H_0:$ szereg posiada pierwiastek jednostkowy (jest niestacjonarny) z dryfem, ale BEZ pęknięć strukturalnych i przyjmujemy $H_1:$ szereg jest stacjonarny (wokół trendu lub poziomu) Z JEDNYM pęknięciem strukturalnym w określonym punkcie czasu.
+Po przyjrzeniu się wykresowi można zauważyć silny spadek wydatków w okolicy kryzysu z 2008 roku. Ze względu na niego szereg nawet po różnicowaniu nie jest uznawany za stacjonarny przez test KPSS. Na szczęście istnieje test stacjonarności, który potrafi uwzględnić pęknięcie strukturalne. Jest to test Zivota-Andrewsa. Odrzucamy $H_0:$ szereg jest niestacjonarny i nie ma pęknięć strukturalnych, a przyjmujemy $H_1:$ szereg jest stacjonarny z pęknięciem strukturalnym w określonym punkcie czasu (w tym przypadku jest to jesień 2008 roku).
 
 # Budowa modelu
 
@@ -246,38 +240,49 @@ ggplot(model_data_filtered, aes(sample = .resid)) +
 Jeżeli odfiltrujemy wartości spoza przedziału $(\mu-2\sigma, \mu + 2\sigma)$ to wciąż widoczne są lekkie odchylenia, lecz środkowy obszar rozkładu przylega do linii teoretycznej, dlatego można uznać ten rozkład za asymptotycznie normalny. W przedziale dwóch sigm zawiera się `r nrow(model_data_filtered)` z `r nrow(model_data)` obserwacji.
 
 # Testowanie autokorelacji
-Test Durbina-Watsona
+
+### Test Durbina-Watsona
+
 ```{r}
 dwtest(model)
 ```
+
 Statystyka testowa wynosi 2.474, p-value = 1, co oznacza brak podstaw do odrzucenia H0. Wartość statystyki jest powyżej 2, co może sugerować lekką autokorelację ujemną - do zweryfikowania innym testem.
 
-Test Breuscha-Godfreya (opóźnienie do 12 miesięcy)
+### Test Breuscha-Godfreya (opóźnienie do 12 miesięcy)
 
 ```{r}
 bgtest(model, order = 12)
 ```
+
 Bardzo niskie p-value, odrzucamy hipotezę zerową o braku autokorelacji do 12. rzędu. W resztach modelu istnieje silna autokorelacja.
+
 # Testowanie współliniowości
 ```{r}
 vif(model)
 ```
+
 Wartości wskaźnika VIF dla obu zmiennych są bliskie 1.
 Oznacza to, że między przyrostami stóp hipotecznych a przyrostami wydatków konsumpcyjnych nie występuje problem współliniowości. Zmienne te niosą niezależne informacje, dzięki czemu szacunki parametrów modelu są stabilne.
 
 # Testowanie stabilności parametrów modelu
 
 # Testowanie stabilności postaci analitycznej modelu
-Test Ramsey'a RESET
+
+### Test Ramsey'a RESET
+
 ```{r}
 resettest(model, power = 2:3, type = "fitted")
 ```
 
-Test liczby serii
+### Test liczby serii
+
 ```{r}
 runs.test(as.factor(model$residuals > 0))
 ```
+
 Test liczby serii weryfikuje niezależność kolejnych znaków reszt modelu, a wysokie p-value (0.2261) oznacza przyjęcie hipotezy zerowej o ich losowym rozkładzie. 
+
 # Badanie efektu katalizy
 
 ```{r}
@@ -294,6 +299,7 @@ print(R < 0)
 
 
 # Badanie koincydencji
+
 ```{r}
 koincydencja <- function(x, y) {
   mean(sign(x) == sign(y), na.rm = TRUE)
@@ -317,7 +323,7 @@ wyniki_koincydencji
 ggplot(wyniki_koincydencji,
        aes(x = reorder(Zmienna, Koincydencja),
            y = Koincydencja)) +
-  geom_col() +
+  geom_col(fill = "#2C3E50") +
   coord_flip() +
   labs(
     title = "Współczynniki koincydencji",
@@ -326,7 +332,9 @@ ggplot(wyniki_koincydencji,
   ) +
   theme_minimal()
 ```
+
 Otrzymane współczynniki koincydencji dla wszystkich analizowanych zmiennych są niższe od 0,5. Oznacza to, że zmienne objaśniające częściej zmieniają się w kierunku przeciwnym niż stopa oszczędności.
+
 # Ostateczna postać modelu
 
 # Wyznaczenie prognozy
