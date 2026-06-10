@@ -18,7 +18,10 @@ library(corrplot)
 library(cowplot)
 library(tseries)
 library(forecast)
+library(urca)
 library(broom) #augment - lm -> data.frame
+dane <- dane |>
+	mutate(date = ymd(date))
 test <- dane |>
 	filter(date > ymd("2014-02-01"))
 train <- dane |>
@@ -141,18 +144,30 @@ train |>
 Zmienne nie są stacjonarne nawet po uwzględnieniu trendu. W celu usunięcia niestacjonarności przekształcamy szereg czasowy wartości w szereg czasowy różnic wartości.
 
 ```{r fig.width=9, warning = F}
-train <- train |>
+train_diff <- train |>
 	mutate(across(where(is.numeric), ~ c(NA, diff(.x)))) |>
 	slice(-1)
 
-train |>
+train_diff |>
 	select(-date) |>
 	summarise(across(everything(), ~ kpss.test(.x, null = "Trend")$p.value))
+
+train_diff <- train |>
+	mutate(across(where(is.numeric), ~ c(NA, diff(.x)))) |>
+	slice(-12)
 ```
 
-Po przekształceniu zmienne stały się stacjonarne.
+Po przekształceniu zmienne stały się stacjonarne z wyjątkiem zmiennej opisującej wydatki na konsumpcję.
 
+```{r}
+ggplot(train, aes(x = date, y = Personal_consumption_expenditure)) +
+	geom_line() +
+	theme_minimal()
 
+summary(ur.za(train_diff$Personal_consumption_expenditure))
+```
+
+Po przyjrzeniu się wykresowi można zauważyć silny spadek wydatków w okolicy kryzysu z 2008 roku. Ze względu na niego szereg nawet po różnicowaniu nie jest uznawany za stacjonarny przez test KPSS. Na szczęście istnieje test stacjonarności, który potrafi uwzględnić pęknięcie strukturalne. Odrzucamy $H_0:$ szereg posiada pierwiastek jednostkowy (jest niestacjonarny) z dryfem, ale BEZ pęknięć strukturalnych i przyjmujemy $H_1:$ szereg jest stacjonarny (wokół trendu lub poziomu) Z JEDNYM pęknięciem strukturalnym w określonym punkcie czasu.
 
 # Budowa modelu
 
