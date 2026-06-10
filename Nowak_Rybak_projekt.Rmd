@@ -213,7 +213,7 @@ ggplot(model_data, aes(x = .resid)) +
 	    color = "red", 
 	    linewidth = 1.2
 	) +
-	labs(title = "Rozkład reszt", x = "Wartość reszty", y = "Gęstość wystąpień") +
+	labs(title = "Rozkład reszt", x = "Wartość reszty", y = "Gęstość") +
 	theme_minimal()
 
 ggplot(model_data, aes(sample = .resid)) +
