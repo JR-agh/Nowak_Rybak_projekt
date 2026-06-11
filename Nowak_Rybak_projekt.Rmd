@@ -23,6 +23,7 @@ library(broom)
 library(lmtest)
 library(strucchange)
 library(car)
+library(prais)
 
 dane <- dane |>
 	mutate(date = ymd(date))
@@ -102,12 +103,14 @@ train |>
 corr_matrix <- train |> 
 	select(-c(date, personal_savings)) |> 
 	cor()
+
 pary_kor <- corr_matrix |> 
 	as.data.frame() |> 
 	mutate(var1 = rownames(corr_matrix)) |> 
 	pivot_longer(cols = -var1, names_to = "var2", values_to = "corr") |> 
 	filter(var1 < var2, abs(corr) > 0.7) |> 
 	arrange(desc(abs(corr)))
+
 print(pary_kor)
 ```
 
@@ -116,15 +119,18 @@ W niektórych parach zmiennych objaśniających występują wysokie korelacje. P
 ```{r}
 train <- train |>
 	select(-c(CPI, disposable_income))
+
 corr_matrix <- train |> 
 	select(-c(date, personal_savings)) |> 
 	cor()
+
 pary_kor <- corr_matrix |> 
 	as.data.frame() |> 
 	mutate(var1 = rownames(corr_matrix)) |> 
 	pivot_longer(cols = -var1, names_to = "var2", values_to = "corr") |> 
 	filter(var1 < var2, abs(corr) > 0.7) |> 
 	arrange(desc(abs(corr)))
+
 print(pary_kor)
 ```
 
@@ -195,6 +201,8 @@ model <- lm(personal_savings ~ Mortgage_rate +
 summary(model)
 ```
 
+W takiej postaci wszystkie zmienne są istotne na poziomie $\alpha = 0.1$.
+
 # Badanie normalności rozkładu reszt
 
 ```{r}
@@ -257,6 +265,32 @@ bgtest(model, order = 12)
 
 Bardzo niskie p-value, odrzucamy hipotezę zerową o braku autokorelacji do 12. rzędu. W resztach modelu istnieje silna autokorelacja.
 
+```{r results = "hide"}
+model_pw <- prais_winsten(personal_savings ~ Mortgage_rate +
+            Personal_consumption_expenditure, data = train, index = "date")
+rho <- tail(model_pw$rho, 1)[[1]]
+train2 <- data.frame(personal_savings = numeric(nrow(train)),
+                     Mortgage_rate = numeric(nrow(train)),
+					 Personal_consumption_expenditure = numeric(nrow(train)))
+train2$intercept <- c(1 * sqrt(1 - rho^2), rep(1 - rho, nrow(train) - 1))
+train2$personal_savings <- train$personal_savings - lag(train$personal_savings, default = 0)*rho
+train2$Mortgage_rate <- train$Mortgage_rate - lag(train$Mortgage_rate, default = 0)*rho
+train2$Personal_consumption_expenditure <- train$Personal_consumption_expenditure - lag(train$Personal_consumption_expenditure, default = 0)*rho
+train2$personal_savings[1] <- train$personal_savings[1]*sqrt(1-rho^2)
+train2$Mortgage_rate[1] <- train$Mortgage_rate[1]*sqrt(1-rho^2)
+train2$Personal_consumption_expenditure[1] <- train$Personal_consumption_expenditure[1]*sqrt(1-rho^2)
+model2 <- lm(personal_savings ~ Mortgage_rate + intercept +
+            Personal_consumption_expenditure - 1, data = train2)
+```
+
+Istnienie wysokiej autokorelacji jest problemem, który należy spróbować rozwiązać. W tym celu została zastosowana metoda Cochrane’a-Orcutta, a dokładniej zmodyfikowana wersja, która w literaturze jest określana mianem procedury Praisa-Winstena.
+
+```{r}
+bgtest(model2, order = 12)
+```
+
+Wynik testu się zmienił - p-value znacznie wzrosło do wartości 0.02, lecz wciąż jest ono poniżej poziomu $\alpha = 0.1$. Niestety próba pozbycia się autokorelacji zakończyła się niepowodzeniem.
+
 # Testowanie współliniowości
 ```{r}
 vif(model)
@@ -266,6 +300,19 @@ Wartości wskaźnika VIF dla obu zmiennych są bliskie 1.
 Oznacza to, że między przyrostami stóp hipotecznych a przyrostami wydatków konsumpcyjnych nie występuje problem współliniowości. Zmienne te niosą niezależne informacje, dzięki czemu szacunki parametrów modelu są stabilne.
 
 # Testowanie stabilności parametrów modelu
+
+### Test Chowa
+
+```{r}
+test_chowa <- sctest(personal_savings ~ Mortgage_rate + Personal_consumption_expenditure, 
+       type = "Chow", 
+       point = 331, 
+       data = train)
+
+test_chowa
+```
+
+Podczas testu Chowa należy podzielić obserwacje na dwa podokresy, a wybór podziału może przebiegać na różne sposoby. W tym wypadku obserwacje zostały podzielone na te przed kryzysem z 2008 roku i na te po tym kryzysie. Uzyskana wartość p-value = `r round(test_chowa$p.value, 2)` jest wyższa od 0.1, co oznacza, że parametry modelu są stabilne.
 
 # Testowanie stabilności postaci analitycznej modelu
 
@@ -287,16 +334,17 @@ Test liczby serii weryfikuje niezależność kolejnych znaków reszt modelu, a w
 
 ```{r}
 R0 <- cor(train |> 
-	select(-c(date, personal_savings)),
+	select(Mortgage_rate, Personal_consumption_expenditure),
 	train$personal_savings)
 
 R <- cor(train |> 
-	select(-c(date, personal_savings)),
+	select(Mortgage_rate, Personal_consumption_expenditure),
 	train |> 
-	select(-c(date, personal_savings)))
+	select(Mortgage_rate, Personal_consumption_expenditure))
 print(R < 0)
 ```
 
+Okazuje się, że żadna ze zmiennych nie jest katalizatorem.
 
 # Badanie koincydencji
 
