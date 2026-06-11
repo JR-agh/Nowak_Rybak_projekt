@@ -296,9 +296,24 @@ Wynik testu się zmienił - p-value znacznie wzrosło do wartości 0.02, lecz wc
 vif(model)
 ```
 
-Wartości wskaźnika VIF dla obu zmiennych są bliskie 1.
-Oznacza to, że między przyrostami stóp hipotecznych a przyrostami wydatków konsumpcyjnych nie występuje problem współliniowości. Zmienne te niosą niezależne informacje, dzięki czemu szacunki parametrów modelu są stabilne.
+Wartości wskaźnika VIF dla obu zmiennych są bliskie 1..
 
+Korelacja między zmiennymi objaśniającymi po różnicowaniu
+```{r}
+cor_objasnajace <- cor(train |> 
+  select(Mortgage_rate, Personal_consumption_expenditure))
+print(round(cor_objasnajace, 4))
+
+ggplot(train, aes(x = Mortgage_rate, 
+                  y = Personal_consumption_expenditure)) +
+  geom_point(alpha = 0.3, color = "grey") +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(title = "Zależność między zmiennymi objaśniającymi",
+       x = "Przyrost stopy kredytów hipotecznych",
+       y = "Przyrost wydatków na konsumpcję") +
+  theme_minimal()
+```
+Wykres rozrzutu między przyrostami stopy kredytów hipotecznych a przyrostami wydatków na konsumpcję nie wykazuje wyraźnej zależności liniowej — linia trendu jest niemal pozioma. Potwierdza to brak współliniowości między zmiennymi objaśniającymi, co jest zgodne z wartościami VIF bliskimi 1. Zmienne wnoszą do modelu niezależną informację.
 # Testowanie stabilności parametrów modelu
 
 ### Test Chowa
@@ -329,6 +344,26 @@ runs.test(as.factor(model$residuals > 0))
 ```
 
 Test liczby serii weryfikuje niezależność kolejnych znaków reszt modelu, a wysokie p-value (0.2261) oznacza przyjęcie hipotezy zerowej o ich losowym rozkładzie. 
+
+```{r}
+model_data <- augment(model) |>
+  mutate(date = train$date)
+
+ggplot(model_data, aes(x = date, y = .resid)) +
+  geom_line(color = "black", alpha = 0.7) +
+  geom_hline(yintercept = 0, color = "red", 
+             linetype = "dashed", linewidth = 1) +
+  geom_hline(yintercept = c(-2*sd(model$residuals), 
+                              2*sd(model$residuals)),
+             color = "blue", linetype = "dotted") +
+  labs(title = "Reszty modelu w czasie",
+       x = "Data", y = "Reszta") +
+  theme_minimal()
+```
+
+Zdecydowana większość reszt mieści się w przedziale,  jednak widoczna jest zwiększona liczba obserwacji wykraczających poza ten przedział, co jest spójne z wcześniej wykrytą autokorelacją reszt. 
+Szczególnie wyraźne skoki występują w okolicach lat 1986, 2008 i 2014, odpowiadających okresom turbulencji gospodarczych.
+
 
 # Badanie efektu katalizy
 
