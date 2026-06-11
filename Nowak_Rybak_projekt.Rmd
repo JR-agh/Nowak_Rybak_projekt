@@ -24,6 +24,7 @@ library(lmtest)
 library(strucchange)
 library(car)
 library(prais)
+library(sandwich)
 
 dane <- dane |>
 	mutate(date = ymd(date))
@@ -290,6 +291,26 @@ bgtest(model2, order = 12)
 ```
 
 Wynik testu się zmienił - p-value znacznie wzrosło do wartości 0.02, lecz wciąż jest ono poniżej poziomu $\alpha = 0.1$. Niestety próba pozbycia się autokorelacji zakończyła się niepowodzeniem.
+
+
+# Badanie heteroskedastyczności
+
+### Test Breuscha-Pagana
+
+```{r}
+bptest(model)
+```
+Wartość p-value = 0.0452 jest mniejsza od przyjętego poziomu istotności alpha = 0.1, co nakazuje odrzucić hipotezę zerową o homoskedastyczności. Oznacza to, że w modelu występuje problem heteroskedastyczności, czyli wariancja składnika losowego nie jest stała w czasie.
+### Test White'a
+```{r}
+bptest(model, ~ fitted(model) + I(fitted(model)^2))
+```
+Wariancja testu oparta na kwadratach wartości dopasowanych dała wynik nieistotny statystycznie (p-value = 0.2381 > 0.1), co oznacza brak podstaw do odrzucenia hipotezy zerowej. Wynik ten sugeruje, że występująca w modelu heteroskedastyczność ma charakter liniowy względem samych zmiennych objaśniających, a nie form nieliniowych.
+```{r}
+coeftest(model, vcov = vcovHC(model, type = "HC3"))
+```
+
+Zastosowanie rygorystycznej korekty barierowej HC3 pozwoliło na ponowną ocenę istotności zmiennych w warunkach odpornych na heteroskedastyczność. Po przeliczeniu błędów standardowych zmienna Mortgage_rate okazała się statystycznie nieistotna (p-value 0.2384 > 0.1)
 
 # Testowanie współliniowości
 ```{r}
