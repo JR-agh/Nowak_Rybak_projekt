@@ -306,6 +306,24 @@ Wartość p-value = 0.0452 jest mniejsza od przyjętego poziomu istotności alph
 bptest(model, ~ fitted(model) + I(fitted(model)^2))
 ```
 Wariancja testu oparta na kwadratach wartości dopasowanych dała wynik nieistotny statystycznie (p-value = 0.2381 > 0.1), co oznacza brak podstaw do odrzucenia hipotezy zerowej. Wynik ten sugeruje, że występująca w modelu heteroskedastyczność ma charakter liniowy względem samych zmiennych objaśniających, a nie form nieliniowych.
+
+```{r}
+gqtest(model, order.by = ~ Personal_consumption_expenditure, data = train)
+gqtest(model, order.by = ~ Mortgage_rate, data = train)
+```
+W celu głębszej analizy struktury heteroskedastyczności przeprowadzono test Goldfelda-Quandta dla obu zmiennych objaśniających. Hipoteza zerowa zakłada stałość wariancji (homoskedastyczność), natomiast hipoteza alternatywna postuluje, że wariancja reszt rośnie wraz ze wzrostem wartości danej zmiennej.
+
+
+
+* **Dla wydatków na konsumpcję:** wartość $p\text{-value} = 0.0039$ jest znacznie mniejsza od $\alpha = 0.1$, co nakazuje odrzucić hipotezę zerową.
+
+* **Dla stopy kredytów hipotecznych:** wartość $p\text{-value} = 1.45 \cdot 10^{-9}$ również jednoznacznie odrzuca hipotezę zerową.
+
+
+
+Wyniki obu testów jednoznacznie potwierdzają, że wariancja składnika losowego nie jest stała, lecz rośnie w okresach wyższych przyrostów wydatków konsumpcyjnych oraz wyższych przyrostów stóp procentowych. Taka systematyczna zmienność wariancji stanowi ostateczne potwierdzenie konieczności zastosowania odpornych błędów standardowych (korekty barierowej HC3) w dalszej ocenie istotności zmiennych.
+
+
 ```{r}
 coeftest(model, vcov = vcovHC(model, type = "HC3"))
 ```
@@ -360,6 +378,7 @@ Podczas testu Chowa należy podzielić obserwacje na dwa podokresy, a wybór pod
 ```{r}
 resettest(model, power = 2:3, type = "fitted")
 ```
+0.06673 < 0.1, odrzucenie H0 o poprawnej postaci analitycznej modelu, sugeruje to obecność nieliniowości w relacjach między stopą oszczędności a zmiennymi makroekonomicznymi, co jest naturalną cechą długich szeregów czasowych.
 
 ### Test liczby serii
 
@@ -484,3 +503,10 @@ rmse <- sqrt(mean((test$personal_savings - predicted_lvl)^2))
 ```
 
 Błędy prognozy mają wartości: MAE = `r round(mae, 2)`, RMSE = `r round(rmse, 2)`.
+
+```{r}
+ex_post <- mean(
+  abs(test$personal_savings - predicted_lvl) /
+  abs(test$personal_savings)
+) * 100
+```
