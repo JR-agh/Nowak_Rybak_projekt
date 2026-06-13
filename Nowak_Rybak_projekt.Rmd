@@ -1,13 +1,7 @@
 ---
 title: "Budowa modelu ekonometrycznego na podstawie danych makroekonomicznych USA w latach 1980-2022"
 author: "Natalia Nowak, Jacek Rybak"
-output:
-  html_document:
-    toc: true
-    toc_float:
-      collapsed: true
-      smooth_scroll: true
-    theme: flatly
+output: pdf_document
 date: "`r Sys.Date()`"
 ---
 
