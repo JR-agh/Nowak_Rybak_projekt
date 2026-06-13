@@ -1,7 +1,9 @@
 ---
 title: "Budowa modelu ekonometrycznego na podstawie danych makroekonomicznych USA w latach 1980-2022"
 author: "Natalia Nowak, Jacek Rybak"
-output: pdf_document
+output:
+  pdf_document:
+    toc: true
 date: "`r Sys.Date()`"
 ---
 
@@ -49,6 +51,10 @@ summary(dane)
 * $X_5:$`disposable_income` dochód rozporządzalny
 * $X_6:$`Personal_consumption_expenditure` wydatki na konsumpcję
 * $Y:$`personal_savings` odsetek wynagrodzenia przeznaczany na oszczędności
+
+## Cel projektu
+
+Celem projektu jest zbadanie jak zmienne opisujące (wskaźniki związane z amerykańską gospodarką) wpływają  na to, ile pieniędzy przeznaczają na oszczędności Amerykanie (jak zmienia się stopa oszczędności osobistych).
 
 # Wykresy zależności
 
